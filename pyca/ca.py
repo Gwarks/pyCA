@@ -304,40 +304,25 @@ def control_loop():
 				print 'No scheduled recording'
 		time.sleep(1.0)
 
-
-def recording_command(rec_dir, rec_name, rec_duration):
-	s = {'time':rec_duration, 'recname':rec_name, 'recdir':rec_dir,
-			'previewdir':config.PREVIEW_DIR}
-	print(config.CAPTURE_COMMAND % s)
-	if os.system(config.CAPTURE_COMMAND % s):
-		raise Exception('Recording failed')
-
-	# Remove preview files:
-	for p in config.CAPTURE_PREVIEW:
-		try:
-			os.remove(p % {'previewdir':config.PREVIEW_DIR})
-		except:
-			pass
-
-	# Return [(flavor,path),…]
-	return [(o[0], o[1] % s) for o in config.CAPTURE_OUTPUT]
-
 def recording_command(rec_dir, rec_name, rec_duration):
 	pipelines=[]
+	tracks=[]
 	for launch in config.CAPTURE_PIPES:
-		s={"file":'%s/%s-%d.%s'%(rec_dir,rec_name,len(pipelines),launch[1])}
+		s={'file':'%s/%s-%d.%s'%(rec_dir,rec_name,len(pipelines),launch[1])}
 		pipe=gst.parse_launch(launch[3]%s)
 		pipelines.append(pipe)
+		tracks.append((launch[0],s['file']))
 	for pipe in pipelines:
 		pipe.set_state(gst.STATE_PLAYING)
 	time.sleep(rec_duration)
 	for pipe in pipelines:
 		pipe.send_event(gst.event_new_eos())
-	return [()]
+	return tracks
 
 
 
 def test():
+	register_ca(status='capturing')
 	recording_name = 'test-%i' % get_timestamp()
 	recording_dir  = '%s/%s' % (config.CAPTURE_DIR, recording_name)
 	try:
@@ -345,7 +330,10 @@ def test():
 	except:
 		pass
 	os.mkdir(recording_dir)
-	recording_command(recording_dir, recording_name, 60)
+	tracks=recording_command(recording_dir, recording_name, 60)
+	register_ca()
+	ingest(tracks,recording_name,recording_dir,recording_name, 'full')
+	register_ca(status='unknown')
 
 
 def run():

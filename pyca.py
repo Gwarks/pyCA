@@ -18,10 +18,6 @@ if __name__ == '__main__':
 	elif sys.argv[1:] == ['test']:
 		from pyca import ca
 		ca.test()
-	elif sys.argv[1:] == ['upload']:
-		from pyca import ca
-		ca.ingest([('presentation/source','/home/lars/dev/pyCA/recordings/test-1400138833.mp4')],
-				'testrec4','/home/lars/dev/pyCA/recordings','testrec4', 'full')
 	elif sys.argv[1:] == ['run']:
 		from pyca import ca
 		ca.run()

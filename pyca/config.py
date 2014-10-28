@@ -109,9 +109,11 @@ CAPTURE_PIPES = [
 ('presenter/source','mpg',True,
 'v4l2src device=/dev/video0 ! queue ! video/x-raw-rgb ! ffmpegcolorspace ! ffenc_mpeg2video bitrate=2000000 ! mpegtsmux ! filesink location=%(file)s'),
 ('presentation/source','mpg',True,
-'v4l2src device=/dev/video1 ! queue ! video/x-raw-rgb ! ffmpegcolorspace ! ffenc_mpeg2video bitrate=2000000 ! mpegtsmux ! filesink location=%(file)s'),
+'v4l2src device=/dev/video1 ! queue ! video/x-raw-rgb,framerate=30/1 ! ffmpegcolorspace ! ffenc_mpeg2video bitrate=2000000 ! mpegtsmux ! filesink location=%(file)s'),
 ('audience/source','mpg',True,
 ' hdv1394src blocksize="4136" ! queue ! filesink location=%(file)s'),
+('presenter/source','ogg',False,
+'alsasrc device=hw:0 ! audioconvert ! queue ! vorbisenc ! oggmux ! filesink location=%(file)s'),
 ]
 
 
