@@ -22,9 +22,10 @@ import logging
 import icalendar
 from datetime import datetime
 import os.path
-import pygst
-pygst.require("0.10")
+#import pygst
+#pygst.require("0.10")
 import gst
+import xml.etree.ElementTree as ElementTree
 
 if sys.version_info[0] == 2:
 	from cStringIO import StringIO as bio
@@ -320,10 +321,21 @@ def recording_command(rec_dir, rec_name, rec_duration):
 	return tracks
 
 
+def write_dublincore_episode(recording_name,recording_dir,recording_id,start,end):
+	dc=ElementTree.Element('dublincore')
+	dc.attrib['xmlns']="http://www.opencastproject.org/xsd/1.0/dublincore/"
+	dc.attrib['xmlns:dcterms']="http://purl.org/dc/terms/"
+	ElementTree.SubElement(dc,'dcterms:license').text='Creative Commons 3.0: Attribution-NonCommercial-NoDerivs'
+	ElementTree.SubElement(dc,'dcterms:temporal').text='start=%s; end=%s; scheme=W3C-DTF;'%(datetime.utcfromtimestamp(start).isoformat(' '),datetime.utcfromtimestamp(end).isoformat(' '))
+	ElementTree.SubElement(dc,'dcterms:spatial').text=config.CAPTURE_AGENT_NAME
+	ElementTree.SubElement(dc,'dcterms:identifier').text=recording_id
+	ElementTree.SubElement(dc,'dcterms:title').text=recording_name
+	ElementTree.ElementTree(dc).write('%s/episode.xml'%recording_dir,encoding="UTF-8")
 
 def test():
 	register_ca(status='capturing')
-	recording_name = 'test-%i' % get_timestamp()
+	timestamp=get_timestamp();
+	recording_name = 'test-%i' % timestamp
 	recording_dir  = '%s/%s' % (config.CAPTURE_DIR, recording_name)
 	try:
 		os.mkdir(config.CAPTURE_DIR)
@@ -332,6 +344,7 @@ def test():
 	os.mkdir(recording_dir)
 	tracks=recording_command(recording_dir, recording_name, 60)
 	register_ca()
+	write_dublincore_episode(recording_name,recording_dir,recording_name,timestamp,timestamp+60)
 	ingest(tracks,recording_name,recording_dir,recording_name, 'full')
 	register_ca(status='unknown')
 
