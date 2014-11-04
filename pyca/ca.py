@@ -22,8 +22,6 @@ import logging
 import icalendar
 from datetime import datetime
 import os.path
-#import pygst
-#pygst.require("0.10")
 import gst
 import xml.etree.ElementTree as ElementTree
 
@@ -32,34 +30,22 @@ if sys.version_info[0] == 2:
 else:
 	from io import BytesIO as bio
 
-from pyca import config
+from config import config,CAPTURE_DIR
 
 
-def register_ca(address=config.UI_URI, status='idle'):
-	# If this is a backup CA we don't tell the Matterhorn core that we are here.
-	# We will just run silently in the background:
-	if config.BACKUP_AGENT:
-		return
+def register_ca(address=config['UI']['URI'], status='idle'):
 	params = [('address',address), ('state',status)]
-	print(http_request('/capture-admin/agents/%s' % \
-			config.CAPTURE_AGENT_NAME, params))
+	print(http_request('/capture-admin/agents/%s' % config['CAPTURE_AGENT_NAME'], params))
 
 
 def recording_state(recording_id, status='upcoming'):
-	# If this is a backup CA we don't update the recording state. The actual CA
-	# does that and we don't want to mess with it.  We will just run silently in
-	# the background:
-	if config.BACKUP_AGENT:
-		return
 	params = [('state',status)]
-	print(http_request('/capture-admin/recordings/%s' % \
-			recording_id, params))
+	print(http_request('/capture-admin/recordings/%s' % recording_id, params))
 
 
 def get_schedule():
 	try:
-		vcal = http_request('/recordings/calendars?agentid=%s' % \
-				config.CAPTURE_AGENT_NAME)
+		vcal = http_request('/recordings/calendars?agentid=%s' % config['CAPTURE_AGENT_NAME'])
 	except Exception as e:
 		print('ERROR: Could not get schedule: %s' % e.message)
 		return []
@@ -89,7 +75,7 @@ def unix_ts(dt):
 
 
 def get_timestamp():
-	if config.IGNORE_TZ:
+	if config['IGNORE_TZ']:
 		return unix_ts(datetime.now())
 	return unix_ts(datetime.now(dateutil.tz.tzutc()))
 
@@ -113,9 +99,9 @@ def start_capture(schedule):
 	duration = schedule[1] - now
 	recording_id = schedule[2]
 	recording_name = 'recording-%s-%i' % (recording_id, now)
-	recording_dir  = '%s/%s' % (config.CAPTURE_DIR, recording_name)
+	recording_dir  = '%s/%s' % (CAPTURE_DIR, recording_name)
 	try:
-		os.mkdir(config.CAPTURE_DIR)
+		os.mkdir(CAPTURE_DIR)
 	except:
 		pass
 	os.mkdir(recording_dir)
@@ -159,11 +145,6 @@ def start_capture(schedule):
 			with open('%s/recording.properties' % recording_dir, 'w') as f:
 				f.write(value)
 
-	# If we are a backup CA, we don't want to actually upload anything. So let's
-	# just quit here.
-	if config.BACKUP_AGENT:
-		return True
-
 	# Upload everything
 	try:
 		register_ca(status='uploading')
@@ -205,14 +186,14 @@ def start_capture(schedule):
 def http_request(endpoint, post_data=None):
 	buf = bio()
 	c = pycurl.Curl()
-	url = '%s%s' % (config.ADMIN_SERVER_URL, endpoint)
+	url = '%s%s' % (config['ADMIN_SERVER']['URL'], endpoint)
 	c.setopt(c.URL, url.encode('ascii', 'ignore'))
 	if post_data:
 		c.setopt(c.HTTPPOST, post_data)
 	c.setopt(c.WRITEFUNCTION, buf.write)
 	c.setopt(pycurl.HTTPAUTH, pycurl.HTTPAUTH_DIGEST)
 	c.setopt(pycurl.USERPWD, "%s:%s" % \
-			(config.ADMIN_SERVER_USER, config.ADMIN_SERVER_PASSWD))
+			(config['ADMIN_SERVER']['USER'],config['ADMIN_SERVER']['PASSWD']))
 	c.setopt(c.HTTPHEADER, ['X-Requested-Auth: Digest'])
 	c.perform()
 	status = c.getinfo(pycurl.HTTP_CODE)
@@ -296,7 +277,7 @@ def control_loop():
 			# If something went wrong, we do not want to restart the capture
 			# continuously, thus we sleep for the rest of the recording.
 			time.sleep(max(0, schedule[0][1] - get_timestamp()))
-		if get_timestamp() - last_update > config.UPDATE_FREQUENCY:
+		if get_timestamp() - last_update > config['UPDATE_FREQUENCY']:
 			schedule = get_schedule() or schedule
 			last_update = get_timestamp()
 			if schedule:
@@ -308,11 +289,11 @@ def control_loop():
 def recording_command(rec_dir, rec_name, rec_duration):
 	pipelines=[]
 	tracks=[]
-	for launch in config.CAPTURE_PIPES:
-		s={'file':'%s/%s-%d.%s'%(rec_dir,rec_name,len(pipelines),launch[1])}
-		pipe=gst.parse_launch(launch[3]%s)
+	for launch in config['CAPTURE_PIPES']:
+		s={'file':'%s/%s-%d.%s'%(rec_dir,rec_name,len(pipelines),launch['suffix'])}
+		pipe=gst.parse_launch(launch['launch']%s)
 		pipelines.append(pipe)
-		tracks.append((launch[0],s['file']))
+		tracks.append((launch['flavor'],s['file']))
 	for pipe in pipelines:
 		pipe.set_state(gst.STATE_PLAYING)
 	time.sleep(rec_duration)
@@ -327,7 +308,7 @@ def write_dublincore_episode(recording_name,recording_dir,recording_id,start,end
 	dc.attrib['xmlns:dcterms']="http://purl.org/dc/terms/"
 	ElementTree.SubElement(dc,'dcterms:license').text='Creative Commons 3.0: Attribution-NonCommercial-NoDerivs'
 	ElementTree.SubElement(dc,'dcterms:temporal').text='start=%s; end=%s; scheme=W3C-DTF;'%(datetime.utcfromtimestamp(start).isoformat(' '),datetime.utcfromtimestamp(end).isoformat(' '))
-	ElementTree.SubElement(dc,'dcterms:spatial').text=config.CAPTURE_AGENT_NAME
+	ElementTree.SubElement(dc,'dcterms:spatial').text=config['CAPTURE_AGENT_NAME']
 	ElementTree.SubElement(dc,'dcterms:identifier').text=recording_id
 	ElementTree.SubElement(dc,'dcterms:title').text=recording_name
 	ElementTree.ElementTree(dc).write('%s/episode.xml'%recording_dir,encoding="UTF-8")
@@ -336,9 +317,9 @@ def test():
 	register_ca(status='capturing')
 	timestamp=get_timestamp();
 	recording_name = 'test-%i' % timestamp
-	recording_dir  = '%s/%s' % (config.CAPTURE_DIR, recording_name)
+	recording_dir  = '%s/%s' % (CAPTURE_DIR, recording_name)
 	try:
-		os.mkdir(config.CAPTURE_DIR)
+		os.mkdir(CAPTURE_DIR)
 	except:
 		pass
 	os.mkdir(recording_dir)
