@@ -18,9 +18,6 @@ if __name__ == '__main__':
 	elif sys.argv[1] == 'test':
 		from pyca import ca
 		ca.test()
-	elif sys.argv[1] == 'run':
-		from pyca import ca
-		ca.run()
 	elif sys.argv[1] == 'ui':
 		from pyca import ui
 		ui.app.debug = True

@@ -13,6 +13,7 @@ import os.path
 from functools import wraps
 from jinja2 import Template
 from flask import Flask, render_template, request, send_from_directory, Response
+from itertools import izip,count
 app = Flask(__name__)
 
 site = '''
@@ -53,12 +54,8 @@ def checkCredentials(func):
 @app.route("/")
 @checkCredentials
 def home():
-	#preview = [p % {'previewdir':config.PREVIEW_DIR} for p in config.CAPTURE_PREVIEW]
-	#preview = zip(preview, range(len(preview)))
-	#preview = [p[1] for p in preview if os.path.isfile(p[0])]
-	preview=""
-	template = Template(site)
-	return template.render(preview=preview, refresh=config['UI']['REFRESH_RATE'],manual=(manual_stop!=None))
+	preview = [i for i,p in izip(count(),config['CAPTURE_PIPES']) if p['preview']]
+	return Template(site).render(preview=preview, refresh=config['UI']['REFRESH_RATE'],manual=(manual_stop!=None))
 
 
 @app.route("/img/<img>")
@@ -66,14 +63,13 @@ def home():
 def img(img):
 	'''Serve the preview image with the given id
 	'''
-	f = ''
-	#try:
-	#	f = config.CAPTURE_PREVIEW[int(img)] % {'previewdir':config.PREVIEW_DIR}
-	#	if os.path.isfile(f):
-	#		[path,filename] = f.rsplit('/' , 1)
-	#		return send_from_directory(path, filename)
-	#except:
-	#	pass
+	try:
+		f='%s/%s.jpeg' % (PREVIEW_DIR,img)
+		if os.path.isfile(f):
+			[path,filename] = f.rsplit('/' , 1)
+			return send_from_directory(path, filename)
+	except:
+		pass
 	return '', 404
 
 

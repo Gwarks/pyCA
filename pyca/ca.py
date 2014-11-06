@@ -30,7 +30,7 @@ if sys.version_info[0] == 2:
 else:
 	from io import BytesIO as bio
 
-from config import config,CAPTURE_DIR
+from config import config,CAPTURE_DIR,PREVIEW_DIR
 
 
 def register_ca(address=config['UI']['URI'], status='idle'):
@@ -290,7 +290,7 @@ def recording_command(rec_dir, rec_name):
 	pipelines=[]
 	tracks=[]
 	for launch in config['CAPTURE_PIPES']:
-		s={'file':'%s/%s-%d.%s'%(rec_dir,rec_name,len(pipelines),launch['suffix'])}
+		s={'file':'%s/%s-%d.%s'%(rec_dir,rec_name,len(pipelines),launch['suffix']),'preview':'%s/%s.jpeg'%(PREVIEW_DIR,len(pipelines))}
 		pipe=gst.parse_launch(launch['launch']%s)
 		pipelines.append(pipe)
 		tracks.append((launch['flavor'],s['file']))

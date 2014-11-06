@@ -9,23 +9,28 @@ CAPTURE_PIPES:
   -
     flavor: audience/source
     suffix: mpg
-    preview: True
+    preview: False
     launch: v4l2src device=/dev/video0 ! queue ! video/x-raw-rgb ! ffmpegcolorspace ! ffenc_mpeg2video bitrate=2000000 ! mpegtsmux ! filesink location=%(file)s
   -
     flavor: presentation/source
     suffix: mpg
     preview: True
-    launch: v4l2src device=/dev/video1 ! queue ! video/x-raw-rgb,framerate=30/1 ! ffmpegcolorspace ! ffenc_mpeg2video bitrate=2000000 ! mpegtsmux ! filesink location=%(file)s
+    launch: >
+         v4l2src device=/dev/video1 ! tee name=x ! queue !
+         video/x-raw-rgb,framerate=30/1 ! ffmpegcolorspace ! ffenc_mpeg2video bitrate=2000000 ! mpegtsmux ! filesink location=%(file)s
+         x. ! queue ! videorate max-rate=1 ! jpegenc ! multifilesink location=%(preview)s
   -
     flavor: presenter/source
     suffix: mpg
     preview: True
-    launch: hdv1394src blocksize="4136" ! queue ! filesink location=%(file)s
+    launch: hdv1394src blocksize="4136" ! tee name=x ! queue ! filesink location=%(file)s x. ! queue ! tsdemux ! mpeg2dec ! videorate max-rate=1 ! jpegenc ! multifilesink location=%(preview)s
   -
     flavor: audience/source
     suffix: mp3
-    preview: False
-    launch: alsasrc device=hw:0 ! audioconvert ! queue ! lamemp3enc ! id3v2mux ! filesink location=%(file)s
+    preview: True
+    launch: >
+         alsasrc device=hw:0 ! tee name=x ! queue ! audioconvert ! lamemp3enc ! id3v2mux ! filesink location=%(file)s
+         x.! queue ! audioconvert ! spectrascope ! videorate max-rate=1 ! jpegenc ! multifilesink location=%(preview)s
 UI:
   USER: admin
   PASSWD: opencast
