@@ -286,7 +286,7 @@ def control_loop():
 				print 'No scheduled recording'
 		time.sleep(1.0)
 
-def recording_command(rec_dir, rec_name, rec_duration):
+def recording_command(rec_dir, rec_name):
 	pipelines=[]
 	tracks=[]
 	for launch in config['CAPTURE_PIPES']:
@@ -296,10 +296,11 @@ def recording_command(rec_dir, rec_name, rec_duration):
 		tracks.append((launch['flavor'],s['file']))
 	for pipe in pipelines:
 		pipe.set_state(gst.STATE_PLAYING)
-	time.sleep(rec_duration)
-	for pipe in pipelines:
-		pipe.send_event(gst.event_new_eos())
-	return tracks
+	def f():
+		for pipe in pipelines:
+			pipe.send_event(gst.event_new_eos())
+		return tracks
+	return f
 
 
 def write_dublincore_episode(recording_name,recording_dir,recording_id,start,end):
@@ -321,14 +322,34 @@ def test():
 	try:
 		os.mkdir(CAPTURE_DIR)
 	except:
-		pass
+		pass	
 	os.mkdir(recording_dir)
-	tracks=recording_command(recording_dir, recording_name, 60)
+	stop=recording_command(recording_dir, recording_name)
+	time.sleep(60)
+	tracks=stop()
 	register_ca()
 	write_dublincore_episode(recording_name,recording_dir,recording_name,timestamp,timestamp+60)
 	ingest(tracks,recording_name,recording_dir,recording_name, 'full')
 	register_ca(status='unknown')
 
+def manual():
+	register_ca(status='capturing')
+	timestamp=get_timestamp();
+	recording_name = 'manual-%i' % timestamp
+	recording_dir  = '%s/%s' % (CAPTURE_DIR, recording_name)
+	try:
+		os.mkdir(CAPTURE_DIR)
+	except:
+		pass	
+	os.mkdir(recording_dir)
+	stop=recording_command(recording_dir, recording_name)
+	def f():
+		tracks=stop()
+		register_ca()
+		write_dublincore_episode(recording_name,recording_dir,recording_name,timestamp,get_timestamp())
+		ingest(tracks,recording_name,recording_dir,recording_name, 'full')
+		register_ca(status='unknown')
+	return f
 
 def run():
 	try:
