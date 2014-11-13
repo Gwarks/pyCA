@@ -10,9 +10,6 @@
 
 # Set default encoding to UTF-8
 import sys
-reload(sys)
-sys.setdefaultencoding('utf8')
-
 import os
 import time
 import pycurl
@@ -298,7 +295,7 @@ def recording_command(rec_dir, rec_name):
 		pipe.set_state(gst.STATE_PLAYING)
 	def f():
 		for pipe in pipelines:
-			pipe.send_event(gst.event_new_eos())
+                        pipe.set_state(gst.STATE_NULL)
 		return tracks
 	return f
 

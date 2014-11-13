@@ -3,8 +3,6 @@
 
 # Set default encoding to UTF-8
 import sys
-reload(sys)
-sys.setdefaultencoding('utf8')
 
 from config import config,PREVIEW_DIR
 import ca
@@ -14,6 +12,12 @@ from functools import wraps
 from jinja2 import Template
 from flask import Flask, render_template, request, send_from_directory, Response
 from itertools import izip,count
+import signal
+from twisted.internet import reactor
+from twisted.web import static, server
+from twisted.web.wsgi import WSGIResource
+
+
 app = Flask(__name__)
 
 site = '''
@@ -32,7 +36,7 @@ site = '''
 	{% endif %}
 	Capture</a>
 	{% for p in preview %}
-		<img style="max-width: 90%;" src="/img/{{ p }}" />
+		<img style="max-width: 42%;" src="/img/{{ p }}" />
 	{% endfor %}
 </body>
 </html>
@@ -83,3 +87,12 @@ def manual():
 	else:
 		manual_stop=ca.manual()
 	return home()
+
+def run():
+	app.debug=True
+	reactor.listenTCP(5000,server.Site(WSGIResource(reactor,reactor.getThreadPool(),app)))
+	def onShutdown():
+		if manual_stop:
+			manual_stop()
+        reactor.addSystemEventTrigger('before', 'shutdown',onShutdown)
+	reactor.run()

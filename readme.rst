@@ -33,7 +33,6 @@ For RedHat bases systems like Fedora it's almost the same::
 
 Todo
 ****
-* Confidence monitoring
 * Create daemon mode
 
 
