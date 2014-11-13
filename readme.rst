@@ -20,20 +20,4 @@ Here is a short summary for Debian based OS like Raspian::
   vim pyca/config.py
   python pyca.py run
 
-For RedHat bases systems like Fedora it's almost the same::
-
-  git clone https://github.com/lkiesow/pyCA.git
-  cd pyCA
-  sudo yum install python-virtualenv
-  virtualenv venv
-  . ./venv/bin/activate
-  pip install icalendar python-dateutil pycurl
-  vim pyca/config.py  <-- Edit the configuration
-  python pyca.py run
-
-Todo
-****
-* Create daemon mode
-
-
 .. [MH] http://opencast.org/matterhorn

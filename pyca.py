@@ -3,18 +3,11 @@
 
 # Set default encoding to UTF-8
 import sys
-reload(sys)
-sys.setdefaultencoding('utf8')
-
-import getopt
 import os
 
 if __name__ == '__main__':
-	if sys.argv[1]=='run':
-		from pyca import ca
-		ca.run()
-	elif sys.argv[1]=='daemon':
-		print('daemon…')
+	if sys.argv[1] in('start','stop','status'):
+		os.system("zdaemon -p './pyca.py ui' "+sys.argv[1])
 	elif sys.argv[1]=='test':
 		from pyca import ca
 		ca.test()
@@ -22,4 +15,4 @@ if __name__ == '__main__':
 		from pyca import ui
 		ui.run()
 	else:
-		print('Usage: %s run | daemon | test | ui' % sys.argv[0])
+		print('Usage: %s start | stop | status | test | ui' % sys.argv[0])
