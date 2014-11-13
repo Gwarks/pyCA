@@ -16,7 +16,7 @@ import signal
 from twisted.internet import reactor
 from twisted.web import static, server
 from twisted.web.wsgi import WSGIResource
-
+import datetime
 
 app = Flask(__name__)
 
@@ -38,10 +38,14 @@ site = '''
 	{% for p in preview %}
 		<img style="max-width: 42%;" src="/img/{{ p }}" />
 	{% endfor %}
+	<table border="1"><tr><th>Start</th><th>Stop</th><th>ID</th></tr>
+	{% for s in schedule %}
+		<tr><td>{{ df(s[0]) }}</td><td>{{ df(s[1]) }}</td><td>{{ s[2] }}</td></tr>
+	{% endfor %}
+	</table>
 </body>
 </html>
 '''
-
 manual_stop=None
 
 def checkCredentials(func):
@@ -59,7 +63,7 @@ def checkCredentials(func):
 @checkCredentials
 def home():
 	preview = [i for i,p in izip(count(),config['CAPTURE_PIPES']) if p['preview']]
-	return Template(site).render(preview=preview, refresh=config['UI']['REFRESH_RATE'],manual=(manual_stop!=None))
+	return Template(site).render(preview=preview,refresh=config['UI']['REFRESH_RATE'],manual=(manual_stop!=None),schedule=ca.schedule,df=datetime.datetime.fromtimestamp)
 
 
 @app.route("/img/<img>")
@@ -91,8 +95,11 @@ def manual():
 def run():
 	app.debug=True
 	reactor.listenTCP(5000,server.Site(WSGIResource(reactor,reactor.getThreadPool(),app)))
+	ca.register_ca(status='idle')
 	def onShutdown():
 		if manual_stop:
 			manual_stop()
         reactor.addSystemEventTrigger('before', 'shutdown',onShutdown)
+	ca.control_loop()
 	reactor.run()
+	ca.register_ca(status='unknown')

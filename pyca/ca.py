@@ -21,6 +21,9 @@ from datetime import datetime
 import os.path
 import gst
 import xml.etree.ElementTree as ElementTree
+from twisted.internet import task,reactor
+
+schedule=[]
 
 if sys.version_info[0] == 2:
 	from cStringIO import StringIO as bio
@@ -115,68 +118,70 @@ def start_capture(schedule):
 
 	tracks = []
 	try:
-		tracks = recording_command(recording_dir, recording_name, duration)
+		stop=recording_command(recording_dir,recording_name)
 	except Exception as e:
 		print str(e)
 		# Update state
 		recording_state(recording_id,'capture_error')
 		register_ca(status='idle')
 		return False
-
-	# Put metadata files on disk
-	attachments = schedule[-1].get('attach')
-	workflow_config=''
-	for a in attachments:
-		value = b64decode(a.decode())
-		if value.startswith('<'):
-			if '<dcterms:temporal>' in value:
-				f = open('%s/episode.xml' % recording_dir, 'w')
-				f.write(value)
-				f.close()
+	def f():
+		tracks=stop()
+		# Put metadata files on disk
+		attachments = schedule[-1].get('attach')
+		workflow_config=''
+		for a in attachments:
+			value = b64decode(a.decode())
+			if value.startswith('<'):
+				if '<dcterms:temporal>' in value:
+					f = open('%s/episode.xml' % recording_dir, 'w')
+					f.write(value)
+					f.close()
+				else:
+					f = open('%s/series.xml' % recording_dir, 'w')
+					f.write(value)
+					f.close()
 			else:
-				f = open('%s/series.xml' % recording_dir, 'w')
-				f.write(value)
-				f.close()
-		else:
-			workflow_def, workflow_config = get_config_params(value)
-			with open('%s/recording.properties' % recording_dir, 'w') as f:
-				f.write(value)
+				workflow_def, workflow_config = get_config_params(value)
+				with open('%s/recording.properties' % recording_dir, 'w') as f:
+					f.write(value)
 
-	# Upload everything
-	try:
-		register_ca(status='uploading')
-		recording_state(recording_id,'uploading')
-	except:
-		# Ignore it if it does not work (e.g. network issues) as it's more
-		# important to get the recording as to set the correct current state in
-		# the admin ui
-		pass
-
-	try:
-		ingest(tracks, recording_name, recording_dir, recording_id, workflow_def,
-				workflow_config)
-	except:
-		print('ERROR: Something went wrong during the upload')
-		# Update state if something went wrong
+		# Upload everything
 		try:
-			recording_state(recording_id,'upload_error')
+			register_ca(status='uploading')
+			recording_state(recording_id,'uploading')
+		except:
+			# Ignore it if it does not work (e.g. network issues) as it's more
+			# important to get the recording as to set the correct current state in
+			# the admin ui
+			pass
+
+		try:
+			ingest(tracks, recording_name, recording_dir, recording_id, workflow_def,
+					workflow_config)
+		except:
+			print('ERROR: Something went wrong during the upload')
+			# Update state if something went wrong
+			try:
+				recording_state(recording_id,'upload_error')
+				register_ca(status='idle')
+			except:
+				# Ignore it if it does not work (e.g. network issues) as it's more
+				# important to get the recording as to set the correct current state
+				# in the admin ui
+				pass
+			return False
+
+		# Update state
+		try:
+			recording_state(recording_id,'upload_finished')
 			register_ca(status='idle')
 		except:
 			# Ignore it if it does not work (e.g. network issues) as it's more
-			# important to get the recording as to set the correct current state
-			# in the admin ui
+			# important to get the recording as to set the correct current state in
+			# the admin ui
 			pass
-		return False
-
-	# Update state
-	try:
-		recording_state(recording_id,'upload_finished')
-		register_ca(status='idle')
-	except:
-		# Ignore it if it does not work (e.g. network issues) as it's more
-		# important to get the recording as to set the correct current state in
-		# the admin ui
-		pass
+	reactor.callLater(duration,f)
 	return True
 
 
@@ -256,32 +261,20 @@ def ingest(tracks, recording_name, recording_dir, recording_id, workflow_def,
 	mediapackage = http_request('/ingest/ingest', fields)
 
 
-def safe_start_capture(schedule):
-	try:
-		return start_capture(schedule)
-	except Exception as e:
-		print str(e)
-		register_ca(status='idle')
-		return False
+def control_loop():	
+	local={'next':None,'call':None}
+	def f():
+		global schedule
+		schedule=get_schedule() or schedule
+		if schedule:
+			if schedule[0][2]!=local['next']:
+				if local['call']:
+					local['call'].cancel()
+				local['next']=schedule[0][2]
+				local['call']=reactor.callLater(schedule[0][0]-get_timestamp(),start_capture,schedule[0])
+	task.LoopingCall(f).start(config['UPDATE_FREQUENCY'])
 
 
-def control_loop():
-	last_update = 0
-	schedule = []
-	while True:
-		if len(schedule) and schedule[0][0] <= get_timestamp() < schedule[0][1]:
-			start_capture(schedule[0])
-			# If something went wrong, we do not want to restart the capture
-			# continuously, thus we sleep for the rest of the recording.
-			time.sleep(max(0, schedule[0][1] - get_timestamp()))
-		if get_timestamp() - last_update > config['UPDATE_FREQUENCY']:
-			schedule = get_schedule() or schedule
-			last_update = get_timestamp()
-			if schedule:
-				print 'Next scheduled recording: %s' % datetime.fromtimestamp(schedule[0][0])
-			else:
-				print 'No scheduled recording'
-		time.sleep(1.0)
 
 def recording_command(rec_dir, rec_name):
 	pipelines=[]
@@ -298,7 +291,6 @@ def recording_command(rec_dir, rec_name):
                         pipe.set_state(gst.STATE_NULL)
 		return tracks
 	return f
-
 
 def write_dublincore_episode(recording_name,recording_dir,recording_id,start,end):
 	dc=ElementTree.Element('dublincore')
@@ -345,19 +337,4 @@ def manual():
 		register_ca()
 		write_dublincore_episode(recording_name,recording_dir,recording_name,timestamp,get_timestamp())
 		ingest(tracks,recording_name,recording_dir,recording_name, 'full')
-		register_ca(status='unknown')
 	return f
-
-def run():
-	try:
-		register_ca()
-	except Exception as e:
-		print(e)
-		print('ERROR: Could not register capture agent. No connection?')
-		exit(1)
-	get_schedule()
-	try:
-		control_loop()
-	except KeyboardInterrupt:
-		pass
-	register_ca(status='unknown')
