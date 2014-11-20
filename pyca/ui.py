@@ -3,6 +3,7 @@
 
 # Set default encoding to UTF-8
 import sys
+<<<<<<< HEAD
 
 from config import config,PREVIEW_DIR
 import ca
@@ -17,6 +18,7 @@ from twisted.internet import reactor
 from twisted.web import static, server
 from twisted.web.wsgi import WSGIResource
 import datetime
+
 
 app = Flask(__name__)
 
@@ -73,6 +75,7 @@ def img(img):
 	'''
 	try:
 		f='%s/%s.jpeg' % (PREVIEW_DIR,img)
+
 		if os.path.isfile(f):
 			[path,filename] = f.rsplit('/' , 1)
 			return send_from_directory(path, filename)

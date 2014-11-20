@@ -10,6 +10,7 @@
 
 # Set default encoding to UTF-8
 import sys
+
 import os
 import time
 import pycurl
@@ -42,7 +43,6 @@ def register_ca(address=config['UI']['URI'], status='idle'):
 def recording_state(recording_id, status='upcoming'):
 	params = [('state',status)]
 	print(http_request('/capture-admin/recordings/%s' % recording_id, params))
-
 
 def get_schedule():
 	try:
@@ -333,3 +333,4 @@ def manual():
 		write_dublincore_episode(recording_name,recording_dir,recording_name,timestamp,get_timestamp())
 		ingest(tracks,recording_name,recording_dir,recording_name, 'full')
 	return f
+
