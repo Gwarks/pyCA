@@ -22,6 +22,7 @@ import os.path
 import gst
 import xml.etree.ElementTree as ElementTree
 from twisted.internet import task,reactor
+from itertools import izip,count
 
 schedule=[]
 
@@ -260,7 +261,6 @@ def ingest(tracks, recording_name, recording_dir, recording_id, workflow_def,
 	fields += workflow_config
 	mediapackage = http_request('/ingest/ingest', fields)
 
-
 def control_loop():	
 	local={'next':None,'call':None}
 	def f():
@@ -274,21 +274,16 @@ def control_loop():
 				local['call']=reactor.callLater(schedule[0][0]-get_timestamp(),start_capture,schedule[0])
 	task.LoopingCall(f).start(config['UPDATE_FREQUENCY'])
 
-
-
 def recording_command(rec_dir, rec_name):
-	pipelines=[]
+	pipe=gst.Pipeline()
 	tracks=[]
-	for launch in config['CAPTURE_PIPES']:
-		s={'file':'%s/%s-%d.%s'%(rec_dir,rec_name,len(pipelines),launch['suffix']),'preview':'%s/%s.jpeg'%(PREVIEW_DIR,len(pipelines))}
-		pipe=gst.parse_launch(launch['launch']%s)
-		pipelines.append(pipe)
+	for i,launch in izip(count(),config['CAPTURE_PIPES']):
+		s={'file':'%s/%s-%d.%s'%(rec_dir,rec_name,i,launch['suffix']),'preview':'%s/%s.jpeg'%(PREVIEW_DIR,i)}
+		pipe.add(gst.parse_bin_from_description(launch['launch']%s,False))
 		tracks.append((launch['flavor'],s['file']))
-	for pipe in pipelines:
-		pipe.set_state(gst.STATE_PLAYING)
+	pipe.set_state(gst.STATE_PLAYING)
 	def f():
-		for pipe in pipelines:
-                        pipe.set_state(gst.STATE_NULL)
+		pipe.set_state(gst.STATE_NULL)
 		return tracks
 	return f
 
@@ -318,7 +313,7 @@ def test():
 	tracks=stop()
 	register_ca()
 	write_dublincore_episode(recording_name,recording_dir,recording_name,timestamp,timestamp+60)
-	ingest(tracks,recording_name,recording_dir,recording_name, 'full')
+	ingest(tracks,recording_name,recording_dir,recording_name,'full')
 	register_ca(status='unknown')
 
 def manual():

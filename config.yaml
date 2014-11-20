@@ -23,7 +23,9 @@ CAPTURE_PIPES:
     flavor: presenter/source
     suffix: mpg
     preview: True
-    launch: hdv1394src blocksize="4136" ! tee name=x ! queue ! filesink location=%(file)s x. ! queue ! tsdemux ! mpeg2dec ! videorate max-rate=1 ! jpegenc ! multifilesink location=%(preview)s
+    launch: >
+         hdv1394src blocksize="4136" ! queue ! tsdemux ! tee name=x ! queue ! mpeg2dec ! videoscale ! video/x-raw-yuv ! ffenc_mpeg2video ! mpegtsmux ! filesink location=%(file)s
+         x. ! queue ! mpeg2dec ! videorate max-rate=1 ! jpegenc ! multifilesink location=%(preview)s
   -
     flavor: audience/source
     suffix: mp3
@@ -36,3 +38,5 @@ UI:
   PASSWD: opencast
   REFRESH_RATE: 2
   URI: http://localhost:5000
+Comment: >
+  video/mpegts,width=720,heigth=540
