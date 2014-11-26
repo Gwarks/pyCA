@@ -23,7 +23,8 @@ CAPTURE_PIPES:
     flavor: presenter/source
     suffix: mpg
     preview: True
-    launch: >
+    launch: hdv1394src blocksize="4136" ! tee name=x ! queue ! filesink location=%(file)s x. ! queue ! tsdemux ! mpeg2dec ! videorate max-rate=1 ! jpegenc ! multifilesink location=%(preview)s
+    launch_alt: >
          hdv1394src blocksize="4136" ! queue ! tsdemux ! tee name=x ! queue ! mpeg2dec ! videoscale ! video/x-raw-yuv ! 
          ffenc_mpeg2video rc-buffer-size=1500000 rc-max-rate=7000000 rc-min-rate=3500000 bitrate=4000000 max-key-interval=15 pass=pass1
          ! mpegtsmux ! filesink location=%(file)s

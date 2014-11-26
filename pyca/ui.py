@@ -3,7 +3,6 @@
 
 # Set default encoding to UTF-8
 import sys
-<<<<<<< HEAD
 
 from config import config,PREVIEW_DIR
 import ca

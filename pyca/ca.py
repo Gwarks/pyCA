@@ -281,7 +281,8 @@ def recording_command(rec_dir, rec_name):
 		s={'file':'%s/%s-%d.%s'%(rec_dir,rec_name,i,launch['suffix']),'preview':'%s/%s.jpeg'%(PREVIEW_DIR,i)}
 		pipe.add(gst.parse_bin_from_description(launch['launch']%s,False))
 		tracks.append((launch['flavor'],s['file']))
-	pipe.set_state(gst.STATE_PLAYING)
+	if pipe.set_state(gst.STATE_PLAYING)==gst.StateChangeReturn(gst.STATE_CHANGE_FAILURE):
+		return None
 	def f():
 		pipe.set_state(gst.STATE_NULL)
 		return tracks
@@ -301,7 +302,7 @@ def write_dublincore_episode(recording_name,recording_dir,recording_id,start,end
 def test():
 	register_ca(status='capturing')
 	timestamp=get_timestamp();
-	recording_name = 'test-%i' % timestamp
+	recording_name = '%s-test-%i' % (config['CAPTURE_AGENT_NAME'],timestamp)
 	recording_dir  = '%s/%s' % (CAPTURE_DIR, recording_name)
 	try:
 		os.mkdir(CAPTURE_DIR)
@@ -313,13 +314,13 @@ def test():
 	tracks=stop()
 	register_ca()
 	write_dublincore_episode(recording_name,recording_dir,recording_name,timestamp,timestamp+60)
-	ingest(tracks,recording_name,recording_dir,recording_name,'full')
+	#ingest(tracks,recording_name,recording_dir,recording_name,'full')
 	register_ca(status='unknown')
 
 def manual():
 	register_ca(status='capturing')
 	timestamp=get_timestamp();
-	recording_name = 'manual-%i' % timestamp
+	recording_name = '%s-manual-%i' % (config['CAPTURE_AGENT_NAME'],timestamp)
 	recording_dir  = '%s/%s' % (CAPTURE_DIR, recording_name)
 	try:
 		os.mkdir(CAPTURE_DIR)

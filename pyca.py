@@ -6,7 +6,9 @@ import sys
 import os
 
 if __name__ == '__main__':
-	if sys.argv[1] in('start','stop','status'):
+	if len(sys.argv) < 2:
+		print('Usage: %s start | stop | status | test | ui' % sys.argv[0])	
+	elif sys.argv[1] in('start','stop','status'):
 		os.system("zdaemon -p './pyca.py ui' "+sys.argv[1])
 	elif sys.argv[1]=='test':
 		from pyca import ca
